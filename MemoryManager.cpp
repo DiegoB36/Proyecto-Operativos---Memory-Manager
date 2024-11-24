@@ -7,6 +7,81 @@
 using json = nlohmann::json;
 using namespace std;
 
+struct Frame
+{
+    std::string content;
+    int frame_number;
+    bool is_free;
+    bool libre;
+    int page_number;
+    int process_id;
+    int segment_id;
+};
+
+class MemoryCalculator
+{
+public:
+    MemoryCalculator(const std::vector<Frame> &frames) : frames(frames) {}
+
+    // Método para calcular la memoria disponible
+    int calculateAvailableMemory()
+    {
+        int free_frames = 0;
+        for (const auto &frame : frames)
+        {
+            if (frame.is_free)
+            {
+                free_frames++;
+            }
+        }
+        return free_frames * FRAME_SIZE;
+    }
+
+    // Método para calcular la memoria consumida por un proceso específico
+    int calculateMemoryUsedByProcess(int process_id)
+    {
+        int used_frames = 0;
+        for (const auto &frame : frames)
+        {
+            if (frame.process_id == process_id && !frame.is_free)
+            {
+                used_frames++;
+            }
+        }
+        return used_frames * FRAME_SIZE;
+    }
+
+private:
+    std::vector<Frame> frames;
+    static const int FRAME_SIZE = 4 * 1024;
+};
+
+std::vector<Frame> loadFramesFromJson(const std::string &filename)
+{
+    std::ifstream file(filename);
+    if (!file.is_open())
+    {
+        throw std::runtime_error("No se pudo abrir el archivo JSON");
+    }
+
+    json j;
+    file >> j;
+
+    std::vector<Frame> frames;
+    for (const auto &item : j["frames"])
+    {
+        frames.push_back({item["content"].get<std::string>(),
+                          item["frame_number"].get<int>(),
+                          item["is_free"].get<bool>(),
+                          item["libre"].get<bool>(),
+                          item["page_number"].get<int>(),
+                          item["process_id"].get<int>(),
+                          item["segment_id"].get<int>()});
+    }
+
+    return frames;
+}
+
 // Función para dividir una cadena en pages de un tamaño específico
 vector<string> pagination(const string &texto, int tamano)
 {
@@ -46,7 +121,8 @@ vector<vector<string>> memoryAllocation(const string &rutaArchivo, int segmentSi
             for (const auto &l : currentSegment)
             {
                 segmentString += l + "\n";
-            }auto pageInProgress = pagination(segmentString, pageSize);
+            }
+            auto pageInProgress = pagination(segmentString, pageSize);
             pages.insert(pages.end(), pageInProgress.begin(), pageInProgress.end());
             segment.push_back(pages);
             currentSegment.clear();
@@ -70,229 +146,95 @@ vector<vector<string>> memoryAllocation(const string &rutaArchivo, int segmentSi
     return segment;
 }
 
-void uploadToRam2(const string &pathRAM, const string &pathSwap, const vector<vector<string>> &absoluteProgram)
+void uploadToRam(const std::string &jsonRAMPath, const std::string &swapRAMPath, const std::vector<std::vector<std::string>> &segments)
 {
     // Leer ambos archivos JSON existentes
-    ifstream jsonRAM_File(pathRAM);
-    ifstream jsonSwap_File(pathSwap);
+    std::ifstream ramJsonFile(jsonRAMPath);
+    std::ifstream swapJsonFile(swapRAMPath);
 
     json jsonRAM;
     json jsonSwap;
 
     // Manejo del JSON principal
-    if (jsonRAM_File.is_open())
+    if (ramJsonFile.is_open())
     {
-        jsonRAM_File >> jsonRAM;
-        jsonRAM_File.close();
-    }
-    else
-    {
-        cerr << "No se pudo abrir el archivo principal JSON: " << pathRAM << endl;
-        return;
+        ramJsonFile >> jsonRAM;
+        ramJsonFile.close();
     }
 
     // Manejo del JSON secundario
-    if (jsonSwap_File.is_open())
+    if (swapJsonFile.is_open())
     {
-        jsonSwap_File >> jsonSwap;
-        jsonSwap_File.close();
-    }
-    else
-    {
-        cerr << "No se pudo abrir el archivo secundario JSON: " << pathSwap << endl;
-        return;
+        swapJsonFile >> jsonSwap;
+        swapJsonFile.close();
     }
 
-    int idRAM = 0;
-    int idSwap = 0;
+    int ramFrame_id = 0;
+    int swapFrame_id = 0;
 
-    // Iterar sobre las partes y pages para organizarlas en los JSON
-    for (size_t i = 0; i < absoluteProgram.size(); ++i)
+    // Iterar sobre las segments y pages para organizarlas en los JSON
+    for (size_t i = 0; i < segments.size(); ++i)
     {
-        const auto &pages = absoluteProgram[i];
+        const auto &pages = segments[i];
 
         // Guardar la primera subparte en el JSON principal
         if (!pages.empty())
         {
             // Buscar el próximo campo "libre" en el JSON principal
-            while (idRAM < jsonRAM["frames"].size() && jsonRAM["frames"][idRAM]["libre"] == false)
+            while (ramFrame_id < jsonRAM["frames"].size() && jsonRAM["frames"][ramFrame_id]["libre"] == false)
             {
-                idRAM++; // Saltar campos ocupados
+                ramFrame_id++; // Saltar campos ocupados
             }
 
-            if (idRAM >= jsonRAM["frames"].size())
+            if (ramFrame_id >= jsonRAM["frames"].size())
             {
-                cerr << "Advertencia: más pages principales que entradas libres en el principal JSON." << endl;
+                std::cerr << "Memoria RAM Insuficiente" << std::endl;
                 return;
             }
 
             // Actualizar la entrada correspondiente en el JSON principal
-            jsonRAM["frames"][idRAM]["segment_id"] = static_cast<int>(i + 1);
-            jsonRAM["frames"][idRAM]["page_number"] = 1;
-            jsonRAM["frames"][idRAM]["content"] = pages[0];
-            jsonRAM["frames"][idRAM]["is_free"] = false; // Marcar como ocupado
+            jsonRAM["frames"][ramFrame_id]["segment_id"] = static_cast<int>(i + 1);
+            jsonRAM["frames"][ramFrame_id]["page_number"] = 1;
+            jsonRAM["frames"][ramFrame_id]["content"] = pages[0];
+            jsonRAM["frames"][ramFrame_id]["libre"] = false;
         }
 
         // Guardar las pages restantes en el JSON secundario
         for (size_t j = 1; j < pages.size(); ++j)
         {
             // Buscar el próximo campo "libre" en el JSON secundario
-            while (idSwap < jsonSwap["frames"].size() && jsonSwap["frames"][idSwap]["libre"] == false)
+            while (swapFrame_id < jsonSwap["frames"].size() && jsonSwap["frames"][swapFrame_id]["libre"] == false)
             {
-                idSwap++; // Saltar campos ocupados
+                swapFrame_id++; // Saltar campos ocupados
             }
 
-            if (idSwap >= jsonSwap["frames"].size())
+            if (swapFrame_id >= jsonSwap["frames"].size())
             {
-                cerr << "Advertencia: más pages secundarias que entradas libres en el secundario JSON." << endl;
+                std::cerr << "Memoria Swap Insuficiente" << std::endl;
                 return;
             }
 
             // Actualizar la entrada correspondiente en el JSON secundario
-            jsonSwap["frames"][idSwap]["segment_id"] = static_cast<int>(i + 1);
-            jsonSwap["frames"][idSwap]["page_number"] = static_cast<int>(j + 1);
-            jsonSwap["frames"][idSwap]["content"] = pages[j];
-            jsonSwap["frames"][idSwap]["is_free"] = false; // Marcar como ocupado
+            jsonSwap["frames"][swapFrame_id]["segment_id"] = static_cast<int>(i + 1);
+            jsonSwap["frames"][swapFrame_id]["page_number"] = static_cast<int>(j + 1);
+            jsonSwap["frames"][swapFrame_id]["content"] = pages[j];
+            jsonSwap["frames"][swapFrame_id]["libre"] = false; // Marcar como ocupado
         }
     }
 
     // Guardar los JSON actualizados en sus archivos correspondientes
-    ofstream jsonRAM_endFile(pathRAM);
-    if (jsonRAM_endFile.is_open())
-    {
-        jsonRAM_endFile << jsonRAM.dump(4); // Escribir el JSON principal formateado con 4 espacios
-        jsonRAM_endFile.close();
-    }
-    else
-    {
-        cerr << "No se pudo guardar el archivo principal JSON: " << pathRAM << endl;
-        return;
-    }
-
-    ofstream jsonSwap_endFile(pathSwap);
-    if (jsonSwap_endFile.is_open())
-    {
-        jsonSwap_endFile << jsonSwap.dump(4); // Escribir el JSON secundario formateado con 4 espacios
-        jsonSwap_endFile.close();
-    }
-    else
-    {
-        cerr << "No se pudo guardar el archivo secundario JSON: " << pathSwap << endl;
-        return;
-    }
-
-    cout << "JSON principal y secundario actualizados correctamente." << endl;
-}
-
-void uploadToRam(const std::string &rutaPrincipalJson, const std::string &rutaSecundarioJson, const std::vector<std::vector<std::string>> &partes)
-{
-    // Leer ambos archivos JSON existentes
-    std::ifstream archivoPrincipalJson(rutaPrincipalJson);
-    std::ifstream archivoSecundarioJson(rutaSecundarioJson);
-
-    json jsonPrincipal;
-    json jsonSecundario;
-
-    // Manejo del JSON principal
-    if (archivoPrincipalJson.is_open())
-    {
-        archivoPrincipalJson >> jsonPrincipal;
-        archivoPrincipalJson.close();
-    }
-    else
-    {
-        std::cerr << "No se pudo abrir el archivo principal JSON: " << rutaPrincipalJson << std::endl;
-        return;
-    }
-
-    // Manejo del JSON secundario
-    if (archivoSecundarioJson.is_open())
-    {
-        archivoSecundarioJson >> jsonSecundario;
-        archivoSecundarioJson.close();
-    }
-    else
-    {
-        std::cerr << "No se pudo abrir el archivo secundario JSON: " << rutaSecundarioJson << std::endl;
-        return;
-    }
-
-    int idPrincipal = 0;
-    int idSecundario = 0;
-
-    // Iterar sobre las partes y subpartes para organizarlas en los JSON
-    for (size_t i = 0; i < partes.size(); ++i)
-    {
-        const auto &subpartes = partes[i];
-
-        // Guardar la primera subparte en el JSON principal
-        if (!subpartes.empty())
-        {
-            // Buscar el próximo campo "libre" en el JSON principal
-            while (idPrincipal < jsonPrincipal["frames"].size() && jsonPrincipal["frames"][idPrincipal]["libre"] == false)
-            {
-                idPrincipal++; // Saltar campos ocupados
-            }
-
-            if (idPrincipal >= jsonPrincipal["frames"].size())
-            {
-                std::cerr << "Advertencia: más subpartes principales que entradas libres en el principal JSON." << std::endl;
-                return;
-            }
-
-            // Actualizar la entrada correspondiente en el JSON principal
-            jsonPrincipal["frames"][idPrincipal]["segment_id"] = static_cast<int>(i + 1);
-            jsonPrincipal["frames"][idPrincipal]["page_number"] = 1;
-            jsonPrincipal["frames"][idPrincipal]["content"] = subpartes[0];
-            jsonPrincipal["frames"][idPrincipal]["libre"] = false; // Marcar como ocupado
-        }
-
-        // Guardar las subpartes restantes en el JSON secundario
-        for (size_t j = 1; j < subpartes.size(); ++j)
-        {
-            // Buscar el próximo campo "libre" en el JSON secundario
-            while (idSecundario < jsonSecundario["frames"].size() && jsonSecundario["frames"][idSecundario]["libre"] == false)
-            {
-                idSecundario++; // Saltar campos ocupados
-            }
-
-            if (idSecundario >= jsonSecundario["frames"].size())
-            {
-                std::cerr << "Advertencia: más subpartes secundarias que entradas libres en el secundario JSON." << std::endl;
-                return;
-            }
-
-            // Actualizar la entrada correspondiente en el JSON secundario
-            jsonSecundario["frames"][idSecundario]["segment_id"] = static_cast<int>(i + 1);
-            jsonSecundario["frames"][idSecundario]["page_number"] = static_cast<int>(j + 1);
-            jsonSecundario["frames"][idSecundario]["content"] = subpartes[j];
-            jsonSecundario["frames"][idSecundario]["libre"] = false; // Marcar como ocupado
-        }
-    }
-
-    // Guardar los JSON actualizados en sus archivos correspondientes
-    std::ofstream archivoPrincipalJsonSalida(rutaPrincipalJson);
+    std::ofstream archivoPrincipalJsonSalida(jsonRAMPath);
     if (archivoPrincipalJsonSalida.is_open())
     {
-        archivoPrincipalJsonSalida << jsonPrincipal.dump(4); // Escribir el JSON principal formateado con 4 espacios
+        archivoPrincipalJsonSalida << jsonRAM.dump(4); // Escribir el JSON principal formateado con 4 espacios
         archivoPrincipalJsonSalida.close();
     }
-    else
-    {
-        std::cerr << "No se pudo guardar el archivo principal JSON: " << rutaPrincipalJson << std::endl;
-        return;
-    }
 
-    std::ofstream archivoSecundarioJsonSalida(rutaSecundarioJson);
+    std::ofstream archivoSecundarioJsonSalida(swapRAMPath);
     if (archivoSecundarioJsonSalida.is_open())
     {
-        archivoSecundarioJsonSalida << jsonSecundario.dump(4); // Escribir el JSON secundario formateado con 4 espacios
+        archivoSecundarioJsonSalida << jsonSwap.dump(4); // Escribir el JSON secundario formateado con 4 espacios
         archivoSecundarioJsonSalida.close();
-    }
-    else
-    {
-        std::cerr << "No se pudo guardar el archivo secundario JSON: " << rutaSecundarioJson << std::endl;
-        return;
     }
 
     std::cout << "JSON principal y secundario actualizados correctamente." << std::endl;
@@ -319,116 +261,119 @@ int contarLineas(const string &rutaArchivo)
     return contadorLineas;
 }
 
-void releaseMemory(const std::string &rutaPrincipalJson, const std::string &rutaSecundarioJson, int process_id)
+void releaseMemory(const std::string &jsonRAMPath, const std::string &swapRAMPath, int process_id)
 {
     // Leer ambos archivos JSON existentes
-    std::ifstream archivoPrincipalJson(rutaPrincipalJson);
-    std::ifstream archivoSecundarioJson(rutaSecundarioJson);
+    std::ifstream ramJsonFile(jsonRAMPath);
+    std::ifstream swapJsonFile(swapRAMPath);
 
-    json jsonPrincipal;
-    json jsonSecundario;
+    json jsonRAM;
+    json jsonSwap;
 
     // Manejo del JSON principal
-    if (archivoPrincipalJson.is_open())
+    if (ramJsonFile.is_open())
     {
-        archivoPrincipalJson >> jsonPrincipal;
-        archivoPrincipalJson.close();
+        ramJsonFile >> jsonRAM;
+        ramJsonFile.close();
     }
     else
     {
-        std::cerr << "No se pudo abrir el archivo principal JSON: " << rutaPrincipalJson << std::endl;
+        std::cerr << "No se pudo abrir el archivo principal JSON: " << jsonRAMPath << std::endl;
         return;
     }
 
     // Manejo del JSON secundario
-    if (archivoSecundarioJson.is_open())
+    if (swapJsonFile.is_open())
     {
-        archivoSecundarioJson >> jsonSecundario;
-        archivoSecundarioJson.close();
+        swapJsonFile >> jsonSwap;
+        swapJsonFile.close();
     }
     else
     {
-        std::cerr << "No se pudo abrir el archivo secundario JSON: " << rutaSecundarioJson << std::endl;
+        std::cerr << "No se pudo abrir el archivo secundario JSON: " << swapRAMPath << std::endl;
         return;
     }
 
     // Liberar frames en el JSON principal
-    for (auto &frame : jsonPrincipal["frames"])
+    for (auto &frame : jsonRAM["frames"])
     {
         if (frame["process_id"] == process_id && !frame["libre"])
         {
-            frame["libre"] = true;           // Marcar como libre
-            frame["is_free"] = true;         // Actualizar is_free para mantener consistencia
-            frame["segment_id"] = 0;         // Reiniciar segment_id
-            frame["page_number"] = 0;        // Reiniciar page_number
-            frame["content"] = "";           // Limpiar contenido
-            frame["process_id"] = 0;         // Reiniciar process_id
+            frame["libre"] = true;    // Marcar como libre
+            frame["is_free"] = true;  // Actualizar is_free para mantener consistencia
+            frame["segment_id"] = 0;  // Reiniciar segment_id
+            frame["page_number"] = 0; // Reiniciar page_number
+            frame["content"] = "";    // Limpiar contenido
+            frame["process_id"] = 0;  // Reiniciar process_id
             std::cout << "Frame liberado en JSON principal, process_id: " << process_id << std::endl;
         }
     }
 
     // Liberar frames en el JSON secundario
-    for (auto &frame : jsonSecundario["frames"])
+    for (auto &frame : jsonSwap["frames"])
     {
         if (frame["process_id"] == process_id && !frame["libre"])
         {
-            frame["libre"] = true;           // Marcar como libre
-            frame["is_free"] = true;         // Actualizar is_free para mantener consistencia
-            frame["segment_id"] = 0;         // Reiniciar segment_id
-            frame["page_number"] = 0;        // Reiniciar page_number
-            frame["content"] = "";           // Limpiar contenido
-            frame["process_id"] = 0;         // Reiniciar process_id
+            frame["libre"] = true;    // Marcar como libre
+            frame["is_free"] = true;  // Actualizar is_free para mantener consistencia
+            frame["segment_id"] = 0;  // Reiniciar segment_id
+            frame["page_number"] = 0; // Reiniciar page_number
+            frame["content"] = "";    // Limpiar contenido
+            frame["process_id"] = 0;  // Reiniciar process_id
             std::cout << "Frame liberado en JSON secundario, process_id: " << process_id << std::endl;
         }
     }
 
     // Guardar los JSON actualizados en sus archivos correspondientes
-    std::ofstream archivoPrincipalJsonSalida(rutaPrincipalJson);
+    std::ofstream archivoPrincipalJsonSalida(jsonRAMPath);
     if (archivoPrincipalJsonSalida.is_open())
     {
-        archivoPrincipalJsonSalida << jsonPrincipal.dump(4); // Escribir el JSON principal formateado con 4 espacios
+        archivoPrincipalJsonSalida << jsonRAM.dump(4); // Escribir el JSON principal formateado con 4 espacios
         archivoPrincipalJsonSalida.close();
     }
     else
     {
-        std::cerr << "No se pudo guardar el archivo principal JSON: " << rutaPrincipalJson << std::endl;
+        std::cerr << "No se pudo guardar el archivo principal JSON: " << jsonRAMPath << std::endl;
         return;
     }
 
-    std::ofstream archivoSecundarioJsonSalida(rutaSecundarioJson);
+    std::ofstream archivoSecundarioJsonSalida(swapRAMPath);
     if (archivoSecundarioJsonSalida.is_open())
     {
-        archivoSecundarioJsonSalida << jsonSecundario.dump(4); // Escribir el JSON secundario formateado con 4 espacios
+        archivoSecundarioJsonSalida << jsonSwap.dump(4); // Escribir el JSON secundario formateado con 4 espacios
         archivoSecundarioJsonSalida.close();
     }
     else
     {
-        std::cerr << "No se pudo guardar el archivo secundario JSON: " << rutaSecundarioJson << std::endl;
+        std::cerr << "No se pudo guardar el archivo secundario JSON: " << swapRAMPath << std::endl;
         return;
     }
 
     std::cout << "Memoria liberada en JSON principal y secundario para process_id: " << process_id << std::endl;
 }
 
-
-
 int main()
 {
+
     // Ruta al archivo de texto y JSON
     string rutaArchivo = "../ProgramaEjemplo.cpp";
     string rutaRAM = "../RAM.json";
     string rutaSwap = "../Swap.json";
-    
+
+    // MEMORY ALLOCATION
+
     // Parámetros de división
     int segmentSize = ceil(contarLineas(rutaArchivo) / 3.0); // Número de líneas por parte
     int pageSize = 50;                                       // Número de caracteres por subparte
-
-    // Dividir el archivo en segment y pages
     auto result = memoryAllocation(rutaArchivo, segmentSize, pageSize);
-
-    // Actualizar el JSON con las pages generadas
     uploadToRam(rutaRAM, rutaSwap, result);
-    
+
+    // Consultas a la Memoria
+    vector<Frame> frames = loadFramesFromJson(rutaRAM);
+    MemoryCalculator memoryCalculator(frames);
+    int available_memory = memoryCalculator.calculateAvailableMemory();
+    cout << "Memoria disponible: " << available_memory << " KB" << endl;
+
     /*
     int process_id = 0;
     releaseMemory(rutaRAM, rutaSwap, process_id);
