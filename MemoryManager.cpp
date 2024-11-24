@@ -319,13 +319,106 @@ int contarLineas(const string &rutaArchivo)
     return contadorLineas;
 }
 
+void releaseMemory(const std::string &rutaPrincipalJson, const std::string &rutaSecundarioJson, int process_id)
+{
+    // Leer ambos archivos JSON existentes
+    std::ifstream archivoPrincipalJson(rutaPrincipalJson);
+    std::ifstream archivoSecundarioJson(rutaSecundarioJson);
+
+    json jsonPrincipal;
+    json jsonSecundario;
+
+    // Manejo del JSON principal
+    if (archivoPrincipalJson.is_open())
+    {
+        archivoPrincipalJson >> jsonPrincipal;
+        archivoPrincipalJson.close();
+    }
+    else
+    {
+        std::cerr << "No se pudo abrir el archivo principal JSON: " << rutaPrincipalJson << std::endl;
+        return;
+    }
+
+    // Manejo del JSON secundario
+    if (archivoSecundarioJson.is_open())
+    {
+        archivoSecundarioJson >> jsonSecundario;
+        archivoSecundarioJson.close();
+    }
+    else
+    {
+        std::cerr << "No se pudo abrir el archivo secundario JSON: " << rutaSecundarioJson << std::endl;
+        return;
+    }
+
+    // Liberar frames en el JSON principal
+    for (auto &frame : jsonPrincipal["frames"])
+    {
+        if (frame["process_id"] == process_id && !frame["libre"])
+        {
+            frame["libre"] = true;           // Marcar como libre
+            frame["is_free"] = true;         // Actualizar is_free para mantener consistencia
+            frame["segment_id"] = 0;         // Reiniciar segment_id
+            frame["page_number"] = 0;        // Reiniciar page_number
+            frame["content"] = "";           // Limpiar contenido
+            frame["process_id"] = 0;         // Reiniciar process_id
+            std::cout << "Frame liberado en JSON principal, process_id: " << process_id << std::endl;
+        }
+    }
+
+    // Liberar frames en el JSON secundario
+    for (auto &frame : jsonSecundario["frames"])
+    {
+        if (frame["process_id"] == process_id && !frame["libre"])
+        {
+            frame["libre"] = true;           // Marcar como libre
+            frame["is_free"] = true;         // Actualizar is_free para mantener consistencia
+            frame["segment_id"] = 0;         // Reiniciar segment_id
+            frame["page_number"] = 0;        // Reiniciar page_number
+            frame["content"] = "";           // Limpiar contenido
+            frame["process_id"] = 0;         // Reiniciar process_id
+            std::cout << "Frame liberado en JSON secundario, process_id: " << process_id << std::endl;
+        }
+    }
+
+    // Guardar los JSON actualizados en sus archivos correspondientes
+    std::ofstream archivoPrincipalJsonSalida(rutaPrincipalJson);
+    if (archivoPrincipalJsonSalida.is_open())
+    {
+        archivoPrincipalJsonSalida << jsonPrincipal.dump(4); // Escribir el JSON principal formateado con 4 espacios
+        archivoPrincipalJsonSalida.close();
+    }
+    else
+    {
+        std::cerr << "No se pudo guardar el archivo principal JSON: " << rutaPrincipalJson << std::endl;
+        return;
+    }
+
+    std::ofstream archivoSecundarioJsonSalida(rutaSecundarioJson);
+    if (archivoSecundarioJsonSalida.is_open())
+    {
+        archivoSecundarioJsonSalida << jsonSecundario.dump(4); // Escribir el JSON secundario formateado con 4 espacios
+        archivoSecundarioJsonSalida.close();
+    }
+    else
+    {
+        std::cerr << "No se pudo guardar el archivo secundario JSON: " << rutaSecundarioJson << std::endl;
+        return;
+    }
+
+    std::cout << "Memoria liberada en JSON principal y secundario para process_id: " << process_id << std::endl;
+}
+
+
+
 int main()
 {
     // Ruta al archivo de texto y JSON
     string rutaArchivo = "../ProgramaEjemplo.cpp";
     string rutaRAM = "../RAM.json";
     string rutaSwap = "../Swap.json";
-
+    
     // Parámetros de división
     int segmentSize = ceil(contarLineas(rutaArchivo) / 3.0); // Número de líneas por parte
     int pageSize = 50;                                       // Número de caracteres por subparte
@@ -335,6 +428,11 @@ int main()
 
     // Actualizar el JSON con las pages generadas
     uploadToRam(rutaRAM, rutaSwap, result);
+    
+    /*
+    int process_id = 0;
+    releaseMemory(rutaRAM, rutaSwap, process_id);
+    */
 
     return 0;
 }
