@@ -45,7 +45,7 @@ vector<vector<string>> memoryAllocation(const string &rutaArchivo, int segmentSi
             string segmentString;
             for (const auto &l : currentSegment)
             {
-                segmentString += l;
+                segmentString += l + "\n";
             }auto pageInProgress = pagination(segmentString, pageSize);
             pages.insert(pages.end(), pageInProgress.begin(), pageInProgress.end());
             segment.push_back(pages);
