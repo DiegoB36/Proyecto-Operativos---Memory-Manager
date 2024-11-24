@@ -321,9 +321,9 @@ int contarLineas(const string &rutaArchivo)
 int main()
 {
     // Ruta al archivo de texto y JSON
-    string rutaArchivo = "C:\\Users\\User\\OneDrive\\Escritorio\\Proyecto Operativos\\ProgramaEjemplo.txt";
-    string rutaRAM = "C:\\Users\\User\\OneDrive\\Escritorio\\Proyecto Operativos\\RAM.json";
-    string rutaSwap = "C:\\Users\\User\\OneDrive\\Escritorio\\Proyecto Operativos\\Swap.json";
+    string rutaArchivo = "../ProgramaEjemplo.cpp";
+    string rutaRAM = "../RAM.json";
+    string rutaSwap = "../Swap.json";
 
     // Parámetros de división
     int segmentSize = ceil(contarLineas(rutaArchivo) / 3.0); // Número de líneas por parte
