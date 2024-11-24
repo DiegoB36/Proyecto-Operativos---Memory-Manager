@@ -7,6 +7,9 @@
 using json = nlohmann::json;
 using namespace std;
 
+string jsonRAMPath = "../RAM.json";
+string jsonSwapPath = "../Swap.json";
+
 struct Frame
 {
     std::string content;
@@ -146,11 +149,11 @@ vector<vector<string>> memoryAllocation(const string &rutaArchivo, int segmentSi
     return segment;
 }
 
-void uploadToRam(const std::string &jsonRAMPath, const std::string &swapRAMPath, const std::vector<std::vector<std::string>> &segments)
+void uploadToRam(const std::vector<std::vector<std::string>> &segments)
 {
     // Leer ambos archivos JSON existentes
     std::ifstream ramJsonFile(jsonRAMPath);
-    std::ifstream swapJsonFile(swapRAMPath);
+    std::ifstream swapJsonFile(jsonSwapPath);
 
     json jsonRAM;
     json jsonSwap;
@@ -196,7 +199,7 @@ void uploadToRam(const std::string &jsonRAMPath, const std::string &swapRAMPath,
             jsonRAM["frames"][ramFrame_id]["segment_id"] = static_cast<int>(i + 1);
             jsonRAM["frames"][ramFrame_id]["page_number"] = 1;
             jsonRAM["frames"][ramFrame_id]["content"] = pages[0];
-            jsonRAM["frames"][ramFrame_id]["libre"] = false;
+            jsonRAM["frames"][ramFrame_id]["is_free"] = false;
         }
 
         // Guardar las pages restantes en el JSON secundario
@@ -218,7 +221,7 @@ void uploadToRam(const std::string &jsonRAMPath, const std::string &swapRAMPath,
             jsonSwap["frames"][swapFrame_id]["segment_id"] = static_cast<int>(i + 1);
             jsonSwap["frames"][swapFrame_id]["page_number"] = static_cast<int>(j + 1);
             jsonSwap["frames"][swapFrame_id]["content"] = pages[j];
-            jsonSwap["frames"][swapFrame_id]["libre"] = false; // Marcar como ocupado
+            jsonSwap["frames"][swapFrame_id]["is_free"] = false; // Marcar como ocupado
         }
     }
 
@@ -230,7 +233,7 @@ void uploadToRam(const std::string &jsonRAMPath, const std::string &swapRAMPath,
         archivoPrincipalJsonSalida.close();
     }
 
-    std::ofstream archivoSecundarioJsonSalida(swapRAMPath);
+    std::ofstream archivoSecundarioJsonSalida(jsonSwapPath);
     if (archivoSecundarioJsonSalida.is_open())
     {
         archivoSecundarioJsonSalida << jsonSwap.dump(4); // Escribir el JSON secundario formateado con 4 espacios
@@ -261,11 +264,11 @@ int contarLineas(const string &rutaArchivo)
     return contadorLineas;
 }
 
-void releaseMemory(const std::string &jsonRAMPath, const std::string &swapRAMPath, int process_id)
+void releaseMemory(int process_id)
 {
     // Leer ambos archivos JSON existentes
     std::ifstream ramJsonFile(jsonRAMPath);
-    std::ifstream swapJsonFile(swapRAMPath);
+    std::ifstream swapJsonFile(jsonSwapPath);
 
     json jsonRAM;
     json jsonSwap;
@@ -290,7 +293,7 @@ void releaseMemory(const std::string &jsonRAMPath, const std::string &swapRAMPat
     }
     else
     {
-        std::cerr << "No se pudo abrir el archivo secundario JSON: " << swapRAMPath << std::endl;
+        std::cerr << "No se pudo abrir el archivo secundario JSON: " << jsonSwapPath << std::endl;
         return;
     }
 
@@ -337,7 +340,7 @@ void releaseMemory(const std::string &jsonRAMPath, const std::string &swapRAMPat
         return;
     }
 
-    std::ofstream archivoSecundarioJsonSalida(swapRAMPath);
+    std::ofstream archivoSecundarioJsonSalida(jsonSwapPath);
     if (archivoSecundarioJsonSalida.is_open())
     {
         archivoSecundarioJsonSalida << jsonSwap.dump(4); // Escribir el JSON secundario formateado con 4 espacios
@@ -345,11 +348,19 @@ void releaseMemory(const std::string &jsonRAMPath, const std::string &swapRAMPat
     }
     else
     {
-        std::cerr << "No se pudo guardar el archivo secundario JSON: " << swapRAMPath << std::endl;
+        std::cerr << "No se pudo guardar el archivo secundario JSON: " << jsonSwapPath << std::endl;
         return;
     }
 
     std::cout << "Memoria liberada en JSON principal y secundario para process_id: " << process_id << std::endl;
+}
+
+string freeMem()
+{
+    vector<Frame> frames = loadFramesFromJson(jsonRAMPath);
+    MemoryCalculator memoryCalculator(frames);
+    int available_memory = memoryCalculator.calculateAvailableMemory();
+    return available_memory + "";
 }
 
 int main()
@@ -357,8 +368,6 @@ int main()
 
     // Ruta al archivo de texto y JSON
     string rutaArchivo = "../ProgramaEjemplo.cpp";
-    string rutaRAM = "../RAM.json";
-    string rutaSwap = "../Swap.json";
 
     // MEMORY ALLOCATION
 
@@ -366,17 +375,14 @@ int main()
     int segmentSize = ceil(contarLineas(rutaArchivo) / 3.0); // Número de líneas por parte
     int pageSize = 50;                                       // Número de caracteres por subparte
     auto result = memoryAllocation(rutaArchivo, segmentSize, pageSize);
-    uploadToRam(rutaRAM, rutaSwap, result);
+    uploadToRam(result);
 
     // Consultas a la Memoria
-    vector<Frame> frames = loadFramesFromJson(rutaRAM);
-    MemoryCalculator memoryCalculator(frames);
-    int available_memory = memoryCalculator.calculateAvailableMemory();
-    cout << "Memoria disponible: " << available_memory << " KB" << endl;
+    cout << "Memoria disponible: " << freeMem() << " KB" << endl;
 
     /*
     int process_id = 0;
-    releaseMemory(rutaRAM, rutaSwap, process_id);
+    releaseMemory(jsonRAMPath, jsonSwapPath, process_id);
     */
 
     return 0;
