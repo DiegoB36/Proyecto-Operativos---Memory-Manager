@@ -15,7 +15,6 @@ struct Frame
     std::string content;
     int frame_number;
     bool is_free;
-    bool libre;
     int page_number;
     int process_id;
     int segment_id;
@@ -76,7 +75,6 @@ std::vector<Frame> loadFramesFromJson(const std::string &filename)
         frames.push_back({item["content"].get<std::string>(),
                           item["frame_number"].get<int>(),
                           item["is_free"].get<bool>(),
-                          item["libre"].get<bool>(),
                           item["page_number"].get<int>(),
                           item["process_id"].get<int>(),
                           item["segment_id"].get<int>()});
@@ -184,7 +182,7 @@ void uploadToRam(const std::vector<std::vector<std::string>> &segments)
         if (!pages.empty())
         {
             // Buscar el próximo campo "libre" en el JSON principal
-            while (ramFrame_id < jsonRAM["frames"].size() && jsonRAM["frames"][ramFrame_id]["libre"] == false)
+            while (ramFrame_id < jsonRAM["frames"].size() && jsonRAM["frames"][ramFrame_id]["is_free"] == false)
             {
                 ramFrame_id++; // Saltar campos ocupados
             }
@@ -206,7 +204,7 @@ void uploadToRam(const std::vector<std::vector<std::string>> &segments)
         for (size_t j = 1; j < pages.size(); ++j)
         {
             // Buscar el próximo campo "libre" en el JSON secundario
-            while (swapFrame_id < jsonSwap["frames"].size() && jsonSwap["frames"][swapFrame_id]["libre"] == false)
+            while (swapFrame_id < jsonSwap["frames"].size() && jsonSwap["frames"][swapFrame_id]["is_free"] == false)
             {
                 swapFrame_id++; // Saltar campos ocupados
             }
@@ -300,9 +298,8 @@ void releaseMemory(int process_id)
     // Liberar frames en el JSON principal
     for (auto &frame : jsonRAM["frames"])
     {
-        if (frame["process_id"] == process_id && !frame["libre"])
+        if (frame["process_id"] == process_id && !frame["is_free"])
         {
-            frame["libre"] = true;    // Marcar como libre
             frame["is_free"] = true;  // Actualizar is_free para mantener consistencia
             frame["segment_id"] = 0;  // Reiniciar segment_id
             frame["page_number"] = 0; // Reiniciar page_number
@@ -315,9 +312,8 @@ void releaseMemory(int process_id)
     // Liberar frames en el JSON secundario
     for (auto &frame : jsonSwap["frames"])
     {
-        if (frame["process_id"] == process_id && !frame["libre"])
+        if (frame["process_id"] == process_id && !frame["is_free"])
         {
-            frame["libre"] = true;    // Marcar como libre
             frame["is_free"] = true;  // Actualizar is_free para mantener consistencia
             frame["segment_id"] = 0;  // Reiniciar segment_id
             frame["page_number"] = 0; // Reiniciar page_number
@@ -355,12 +351,12 @@ void releaseMemory(int process_id)
     std::cout << "Memoria liberada en JSON principal y secundario para process_id: " << process_id << std::endl;
 }
 
-string freeMem()
+int freeMem()
 {
     vector<Frame> frames = loadFramesFromJson(jsonRAMPath);
     MemoryCalculator memoryCalculator(frames);
     int available_memory = memoryCalculator.calculateAvailableMemory();
-    return available_memory + "";
+    return available_memory;
 }
 
 int main()
@@ -380,10 +376,10 @@ int main()
     // Consultas a la Memoria
     cout << "Memoria disponible: " << freeMem() << " KB" << endl;
 
-    /*
     int process_id = 0;
-    releaseMemory(jsonRAMPath, jsonSwapPath, process_id);
-    */
+    releaseMemory(process_id);
+
+    cout << "Memoria disponible: " << freeMem() << " KB" << endl;
 
     return 0;
 }
