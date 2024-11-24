@@ -42,11 +42,12 @@ vector<vector<string>> memoryAllocation(const string &rutaArchivo, int segmentSi
         if (lineCounter == segmentSize)
         {
             vector<string> pages;
+            string segmentString;
             for (const auto &l : currentSegment)
             {
-                auto pageInProgress = pagination(l, pageSize);
-                pages.insert(pages.end(), pageInProgress.begin(), pageInProgress.end());
-            }
+                segmentString += l;
+            }auto pageInProgress = pagination(segmentString, pageSize);
+            pages.insert(pages.end(), pageInProgress.begin(), pageInProgress.end());
             segment.push_back(pages);
             currentSegment.clear();
             lineCounter = 0;

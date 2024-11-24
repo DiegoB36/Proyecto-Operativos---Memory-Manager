@@ -29,28 +29,31 @@
             "segment_id": 3
         },
         {
-            "content": "",
+            "content": "#include <iostream>using namespace std;void hanoi(",
             "frame_number": 3,
             "is_free": true,
-            "page_number": 0,
+            "libre": false,
+            "page_number": 1,
             "process_id": 0,
-            "segment_id": 0
+            "segment_id": 1
         },
         {
-            "content": "",
+            "content": "    {        hanoi(num - 1, origen, auxiliar, dest",
             "frame_number": 4,
             "is_free": true,
-            "page_number": 0,
+            "libre": false,
+            "page_number": 1,
             "process_id": 0,
-            "segment_id": 0
+            "segment_id": 2
         },
         {
-            "content": "",
+            "content": "    char A, B, C;    cout << \"Las clavijas son A B",
             "frame_number": 5,
             "is_free": true,
-            "page_number": 0,
+            "libre": false,
+            "page_number": 1,
             "process_id": 0,
-            "segment_id": 0
+            "segment_id": 3
         },
         {
             "content": "",
