@@ -147,7 +147,7 @@ vector<vector<string>> memoryAllocation(const string &rutaArchivo, int segmentSi
     return segment;
 }
 
-void uploadToRam(const std::vector<std::vector<std::string>> &segments)
+void uploadToRam(const std::vector<std::vector<std::string>> &segments, int process_id)
 {
     // Leer ambos archivos JSON existentes
     std::ifstream ramJsonFile(jsonRAMPath);
@@ -173,10 +173,20 @@ void uploadToRam(const std::vector<std::vector<std::string>> &segments)
     int ramFrame_id = 0;
     int swapFrame_id = 0;
 
+     // Crear un objeto para el proceso en el JSON principal
+    json processEntry;
+    processEntry["process_id"] = process_id; // El ID del proceso
+    processEntry["segments"] = json::array();  // Inicializar el array de segmentos
+
     // Iterar sobre las segments y pages para organizarlas en los JSON
     for (size_t i = 0; i < segments.size(); ++i)
     {
         const auto &pages = segments[i];
+
+        // Crear las tablas de paginación para este proceso
+        json segmentEntry;
+        segmentEntry["segment_id"] = static_cast<int>(i + 1); 
+        segmentEntry["pages"] = json::array();
 
         // Guardar la primera subparte en el JSON principal
         if (!pages.empty())
@@ -198,6 +208,14 @@ void uploadToRam(const std::vector<std::vector<std::string>> &segments)
             jsonRAM["frames"][ramFrame_id]["page_number"] = 1;
             jsonRAM["frames"][ramFrame_id]["content"] = pages[0];
             jsonRAM["frames"][ramFrame_id]["is_free"] = false;
+
+            // Añadir la página en la tabla de paginación del segmento
+            json pageEntry;
+            pageEntry["page_number"] = 1;
+            pageEntry["frame_number"] = ramFrame_id;
+            pageEntry["presence_bit"] = 1;
+            segmentEntry["pages"].push_back(pageEntry);
+
         }
 
         // Guardar las pages restantes en el JSON secundario
@@ -220,8 +238,20 @@ void uploadToRam(const std::vector<std::vector<std::string>> &segments)
             jsonSwap["frames"][swapFrame_id]["page_number"] = static_cast<int>(j + 1);
             jsonSwap["frames"][swapFrame_id]["content"] = pages[j];
             jsonSwap["frames"][swapFrame_id]["is_free"] = false; // Marcar como ocupado
+
+            // Añadir la página en la tabla de paginación del segmento
+            json pageEntry;
+            pageEntry["page_number"] = static_cast<int>(j + 1);
+            pageEntry["frame_number"] = swapFrame_id;
+            pageEntry["presence_bit"] = 0;
+            segmentEntry["pages"].push_back(pageEntry);
         }
+        
+        // Añadir el segmento con sus páginas a la entrada del proceso
+        processEntry["segments"].push_back(segmentEntry);
     }
+    // Agregar la entrada del proceso a la lista de procesos en RAM
+    jsonRAM["SO"].push_back(processEntry);
 
     // Guardar los JSON actualizados en sus archivos correspondientes
     std::ofstream archivoPrincipalJsonSalida(jsonRAMPath);
@@ -371,15 +401,16 @@ int main()
     int segmentSize = ceil(contarLineas(rutaArchivo) / 3.0); // Número de líneas por parte
     int pageSize = 50;                                       // Número de caracteres por subparte
     auto result = memoryAllocation(rutaArchivo, segmentSize, pageSize);
-    uploadToRam(result);
+    int process_id = 0;
+    uploadToRam(result, process_id);
 
     // Consultas a la Memoria
     cout << "Memoria disponible: " << freeMem() << " KB" << endl;
 
-    int process_id = 0;
-    releaseMemory(process_id);
+    //int process_id = 0;
+    //releaseMemory(process_id);
 
-    cout << "Memoria disponible: " << freeMem() << " KB" << endl;
+    //cout << "Memoria disponible: " << freeMem() << " KB" << endl;
 
     return 0;
 }
