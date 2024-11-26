@@ -157,36 +157,6 @@ void uploadToRam(const std::vector<std::vector<std::string>> &segments, int proc
         segmentEntry["segment_id"] = static_cast<int>(i + 1);
         segmentEntry["pages"] = json::array();
 
-        // Guardar la primera subparte en el JSON principal
-        if (!pages.empty())
-        {
-            // Buscar el próximo campo "libre" en el JSON principal
-            while (ramFrame_id < jsonRAM["frames"].size() && jsonRAM["frames"][ramFrame_id]["is_free"] == false)
-            {
-                ramFrame_id++; // Saltar campos ocupados
-            }
-
-            if (ramFrame_id >= jsonRAM["frames"].size())
-            {
-                std::cerr << "Memoria RAM Insuficiente" << std::endl;
-                return;
-            }
-
-            // Actualizar la entrada correspondiente en el JSON principal
-            jsonRAM["frames"][ramFrame_id]["segment_id"] = static_cast<int>(i + 1);
-            jsonRAM["frames"][ramFrame_id]["page_number"] = 1;
-            jsonRAM["frames"][ramFrame_id]["content"] = pages[0];
-            jsonRAM["frames"][ramFrame_id]["process_id"] = process_id;
-            jsonRAM["frames"][ramFrame_id]["is_free"] = false;
-
-            // Añadir la página en la tabla de paginación del segmento
-            json pageEntry;
-            pageEntry["page_number"] = 1;
-            pageEntry["frame_number"] = ramFrame_id;
-            pageEntry["presence_bit"] = 1;
-            segmentEntry["pages"].push_back(pageEntry);
-        }
-
         // Guardar las pages restantes en el JSON secundario
         for (size_t j = 0; j < pages.size(); ++j)
         {
@@ -212,9 +182,37 @@ void uploadToRam(const std::vector<std::vector<std::string>> &segments, int proc
             // Añadir la página en la tabla de paginación del segmento
             json pageEntry;
             pageEntry["page_number"] = static_cast<int>(j + 1);
-            pageEntry["frame_number"] = swapFrame_id;
+            pageEntry["frame_swap"] = swapFrame_id;
+            pageEntry["frame_ram"] = -1;
             pageEntry["presence_bit"] = 0;
             segmentEntry["pages"].push_back(pageEntry);
+        }
+
+        // Guardar la primera subparte en el JSON principal
+        if (!pages.empty())
+        {
+            // Buscar el próximo campo "libre" en el JSON principal
+            while (ramFrame_id < jsonRAM["frames"].size() && jsonRAM["frames"][ramFrame_id]["is_free"] == false)
+            {
+                ramFrame_id++; // Saltar campos ocupados
+            }
+
+            if (ramFrame_id >= jsonRAM["frames"].size())
+            {
+                std::cerr << "Memoria RAM Insuficiente" << std::endl;
+                return;
+            }
+
+            // Actualizar la entrada correspondiente en el JSON principal
+            jsonRAM["frames"][ramFrame_id]["segment_id"] = static_cast<int>(i + 1);
+            jsonRAM["frames"][ramFrame_id]["page_number"] = 1;
+            jsonRAM["frames"][ramFrame_id]["content"] = pages[0];
+            jsonRAM["frames"][ramFrame_id]["process_id"] = process_id;
+            jsonRAM["frames"][ramFrame_id]["is_free"] = false;
+
+            // Añadir la página en la tabla de paginación del segmento
+            segmentEntry["pages"][0]["frame_ram"] = ramFrame_id;
+            segmentEntry["pages"][0]["presence_bit"] = 1;
         }
 
         // Añadir el segmento con sus páginas a la entrada del proceso
@@ -335,7 +333,7 @@ void releaseMemory(int process_id)
     {
         if (frame["process_id"] == process_id && !frame["is_free"])
         {
-            frame["is_free"] = true;  // Actualizar is_free 
+            frame["is_free"] = true;  // Actualizar is_free
             frame["segment_id"] = 0;  // Reiniciar segment_id
             frame["page_number"] = 0; // Reiniciar page_number
             frame["content"] = "";    // Limpiar contenido
@@ -343,12 +341,21 @@ void releaseMemory(int process_id)
         }
     }
 
+    // Borrar tablas de direcciones asociadas al proceso
+    jsonRAM["SO"].erase(
+        std::remove_if(
+            jsonRAM["SO"].begin(),
+            jsonRAM["SO"].end(),
+            [process_id](const json &item)
+            { return item["process_id"] == process_id; }),
+        jsonRAM["SO"].end());
+
     // Liberar frames en el JSON secundario
     for (auto &frame : jsonSwap["frames"])
     {
         if (frame["process_id"] == process_id && !frame["is_free"])
         {
-            frame["is_free"] = true;  // Actualizar is_free 
+            frame["is_free"] = true;  // Actualizar is_free
             frame["segment_id"] = 0;  // Reiniciar segment_id
             frame["page_number"] = 0; // Reiniciar page_number
             frame["content"] = "";    // Limpiar contenido
@@ -360,7 +367,7 @@ void releaseMemory(int process_id)
     std::ofstream archivoPrincipalJsonSalida(jsonRAMPath);
     if (archivoPrincipalJsonSalida.is_open())
     {
-        archivoPrincipalJsonSalida << jsonRAM.dump(4); 
+        archivoPrincipalJsonSalida << jsonRAM.dump(4);
         archivoPrincipalJsonSalida.close();
     }
     else
@@ -372,7 +379,7 @@ void releaseMemory(int process_id)
     std::ofstream archivoSecundarioJsonSalida(jsonSwapPath);
     if (archivoSecundarioJsonSalida.is_open())
     {
-        archivoSecundarioJsonSalida << jsonSwap.dump(4); 
+        archivoSecundarioJsonSalida << jsonSwap.dump(4);
         archivoSecundarioJsonSalida.close();
     }
     else
@@ -515,19 +522,16 @@ int main()
 {
     // MEMORY ALLOCATION
     int process_id = 0;
-    
-     bool result = memoryAllocation(process_id);
-     if (result)
-     {
-         printf("Asignación completa");
-     }
-     // Consultas a la Memoria
-     cout << "Memoria disponible: " << freeMem() << " KB" << endl;
 
-     // releaseMemory(process_id);
+    bool result = memoryAllocation(process_id);
 
-     // cout << "Memoria disponible: " << freeMem() << " KB" << endl;
-    memorySwap(1, 2, 0);
+    // Consultas a la Memoria
+    // cout << "Memoria disponible: " << freeMem() << " KB" << endl;
+
+    // releaseMemory(process_id);
+
+    // cout << "Memoria disponible: " << freeMem() << " KB" << endl;
+    // memorySwap(1, 2, 0);
 
     return 0;
 }
