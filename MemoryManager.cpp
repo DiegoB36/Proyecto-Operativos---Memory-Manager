@@ -335,7 +335,7 @@ void releaseMemory(int process_id)
     {
         if (frame["process_id"] == process_id && !frame["is_free"])
         {
-            frame["is_free"] = true;  // Actualizar is_free 
+            frame["is_free"] = true;  // Actualizar is_free
             frame["segment_id"] = 0;  // Reiniciar segment_id
             frame["page_number"] = 0; // Reiniciar page_number
             frame["content"] = "";    // Limpiar contenido
@@ -343,12 +343,21 @@ void releaseMemory(int process_id)
         }
     }
 
+    // Borrar tablas de direcciones asociadas al proceso
+    jsonRAM["SO"].erase(
+        std::remove_if(
+            jsonRAM["SO"].begin(),
+            jsonRAM["SO"].end(),
+            [process_id](const json &item)
+            { return item["process_id"] == process_id; }),
+        jsonRAM["SO"].end());
+
     // Liberar frames en el JSON secundario
     for (auto &frame : jsonSwap["frames"])
     {
         if (frame["process_id"] == process_id && !frame["is_free"])
         {
-            frame["is_free"] = true;  // Actualizar is_free 
+            frame["is_free"] = true;  // Actualizar is_free
             frame["segment_id"] = 0;  // Reiniciar segment_id
             frame["page_number"] = 0; // Reiniciar page_number
             frame["content"] = "";    // Limpiar contenido
@@ -360,7 +369,7 @@ void releaseMemory(int process_id)
     std::ofstream archivoPrincipalJsonSalida(jsonRAMPath);
     if (archivoPrincipalJsonSalida.is_open())
     {
-        archivoPrincipalJsonSalida << jsonRAM.dump(4); 
+        archivoPrincipalJsonSalida << jsonRAM.dump(4);
         archivoPrincipalJsonSalida.close();
     }
     else
@@ -372,7 +381,7 @@ void releaseMemory(int process_id)
     std::ofstream archivoSecundarioJsonSalida(jsonSwapPath);
     if (archivoSecundarioJsonSalida.is_open())
     {
-        archivoSecundarioJsonSalida << jsonSwap.dump(4); 
+        archivoSecundarioJsonSalida << jsonSwap.dump(4);
         archivoSecundarioJsonSalida.close();
     }
     else
@@ -439,7 +448,6 @@ bool memorySwap(int segmento, int pagina, int process_id)
                         if (paginas["presence_bit"] == 1)
                         {
                             frame_number_Ram = paginas["frame_number"];
-                            
                         }
                     }
                 }
@@ -478,19 +486,22 @@ int main()
 {
     // MEMORY ALLOCATION
     int process_id = 0;
-    
-     bool result = memoryAllocation(process_id);
-     if (result)
-     {
-         printf("Asignación completa");
-     }
-     // Consultas a la Memoria
-     cout << "Memoria disponible: " << freeMem() << " KB" << endl;
 
-     // releaseMemory(process_id);
+    /*
+        bool result = memoryAllocation(process_id);
+        if (result)
+        {
+            printf("Asignación completa");
+        }
+    */
 
-     // cout << "Memoria disponible: " << freeMem() << " KB" << endl;
-    memorySwap(1, 2, 0);
+    // Consultas a la Memoria
+    // cout << "Memoria disponible: " << freeMem() << " KB" << endl;
+
+    releaseMemory(process_id);
+
+    // cout << "Memoria disponible: " << freeMem() << " KB" << endl;
+    // memorySwap(1, 2, 0);
 
     return 0;
 }
