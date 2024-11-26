@@ -188,7 +188,7 @@ void uploadToRam(const std::vector<std::vector<std::string>> &segments, int proc
         }
 
         // Guardar las pages restantes en el JSON secundario
-        for (size_t j = 1; j < pages.size(); ++j)
+        for (size_t j = 0; j < pages.size(); ++j)
         {
             // Buscar el próximo campo "libre" en el JSON secundario
             while (swapFrame_id < jsonSwap["frames"].size() && jsonSwap["frames"][swapFrame_id]["is_free"] == false)
@@ -392,7 +392,8 @@ int freeMem()
     return available_memory;
 }
 
-string leerSwap(int frame_number){
+string leerSwap(int frame_number)
+{
     ifstream inputFile(jsonSwapPath);
     json jsonData;
     inputFile >> jsonData;
@@ -400,8 +401,10 @@ string leerSwap(int frame_number){
 
     string content;
     // Busca el frame que tiene la página y obtiene el contenido
-    for (auto& frame : jsonData["frames"]) {
-        if (frame["frame_number"] == frame_number) {
+    for (auto &frame : jsonData["frames"])
+    {
+        if (frame["frame_number"] == frame_number)
+        {
             content = frame["content"];
             break;
         }
@@ -410,7 +413,8 @@ string leerSwap(int frame_number){
     return content;
 }
 
-bool memorySwap(int segmento, int pagina, int process_id) {
+bool memorySwap(int segmento, int pagina, int process_id)
+{
     ifstream inputFile(jsonRAMPath);
     json jsonData;
     inputFile >> jsonData;
@@ -418,43 +422,52 @@ bool memorySwap(int segmento, int pagina, int process_id) {
 
     int frame_number_swap = 0;
     int frame_number_Ram = 0;
-    for (auto& process : jsonData["SO"]) {
-        if (process["process_id"] == process_id) {
-            for (auto& segmentos : process["segments"]){
-                if(segmentos["segment_id"] == segmento){
-                    for (auto& paginas : segmentos["pages"]){
-                        if (paginas["page_number"] == pagina){
+    for (auto &process : jsonData["SO"])
+    {
+        if (process["process_id"] == process_id)
+        {
+            for (auto &segmentos : process["segments"])
+            {
+                if (segmentos["segment_id"] == segmento)
+                {
+                    for (auto &paginas : segmentos["pages"])
+                    {
+                        if (paginas["page_number"] == pagina)
+                        {
                             frame_number_swap = paginas["frame_number"];
-                        }if (paginas["presence_bit"] == 1)
+                        }
+                        if (paginas["presence_bit"] == 1)
                         {
                             frame_number_Ram = paginas["frame_number"];
                         }
                     }
                 }
-            }   
+            }
         }
     }
     bool assigned = false;
-    for (auto& frame : jsonData["frames"]) {
-        if (frame["is_free"] && !assigned) {
-            frame["is_free"] = false;  // Actualizar is_free para mantener consistencia
-            frame["segment_id"] = segmento;  // Reiniciar segment_id
-            frame["page_number"] = pagina; // Reiniciar page_number
+    for (auto &frame : jsonData["frames"])
+    {
+        if (frame["is_free"] && !assigned)
+        {
+            frame["is_free"] = false;       // Actualizar is_free para mantener consistencia
+            frame["segment_id"] = segmento; // Reiniciar segment_id
+            frame["page_number"] = pagina;  // Reiniciar page_number
             frame["content"] = leerSwap(frame_number_swap);
             assigned = true;
         }
-        if (frame["frame_number"] == frame_number_Ram) {
+        if (frame["frame_number"] == frame_number_Ram)
+        {
             frame["is_free"] = true;  // Actualizar is_free para mantener consistencia
             frame["segment_id"] = 0;  // Reiniciar segment_id
             frame["page_number"] = 0; // Reiniciar page_number
             frame["content"] = "";    // Limpiar contenido
         }
-        
     }
 
     // Guarda el archivo JSON con los cambios
     ofstream outputFile(jsonRAMPath);
-    outputFile << jsonData.dump(4);  // dump(4) para formatear con indentación
+    outputFile << jsonData.dump(4); // dump(4) para formatear con indentación
     outputFile.close();
 
     return true;
@@ -464,19 +477,18 @@ int main()
 {
     // MEMORY ALLOCATION
     int process_id = 0;
-    /*bool result = memoryAllocation(process_id);
-    if (result)
-    {
-        printf("Asignación completa");
-    }
-    // Consultas a la Memoria
-    cout << "Memoria disponible: " << freeMem() << " KB" << endl;
+    /*
+     bool result = memoryAllocation(process_id);
+     if (result)
+     {
+         printf("Asignación completa");
+     }
+     // Consultas a la Memoria
+     cout << "Memoria disponible: " << freeMem() << " KB" << endl;
 
-    // releaseMemory(process_id);
+     // releaseMemory(process_id);
 
-    // cout << "Memoria disponible: " << freeMem() << " KB" << endl;*/
-    
-
+     // cout << "Memoria disponible: " << freeMem() << " KB" << endl;*/
     memorySwap(1, 2, 0);
 
     return 0;
