@@ -168,7 +168,6 @@ void releaseMemory(int process_id)
             frame["segment_id"] = 0;  // Reiniciar segment_id
             frame["page_number"] = 0; // Reiniciar page_number
             frame["content"] = "";    // Limpiar contenido
-            std::cout << "Frame liberado en JSON principal, process_id: " << process_id << std::endl;
         }
     }
 
@@ -190,7 +189,6 @@ void releaseMemory(int process_id)
             frame["segment_id"] = 0;  // Reiniciar segment_id
             frame["page_number"] = 0; // Reiniciar page_number
             frame["content"] = "";    // Limpiar contenido
-            std::cout << "Frame liberado en JSON secundario, process_id: " << process_id << std::endl;
         }
     }
 
