@@ -441,7 +441,7 @@ bool memoryAllocation(int process_id) // solo pid
     return true;
 }
 
-string leerSwap(int frame_number)
+string getPage(int frame_number)
 {
     ifstream inputFile(jsonSwapPath);
     json jsonData;
@@ -462,7 +462,7 @@ string leerSwap(int frame_number)
     return content;
 }
 
-void actualizar_tabla(int segmento, int pagina, int process_id, int new_page_ram_frame)
+void updateTable(int segmento, int pagina, int process_id, int new_page_ram_frame)
 {
     ifstream inputFile(jsonRAMPath);
     json jsonData;
@@ -539,7 +539,7 @@ bool memorySwap(int segmento, int pagina, int process_id)
             frame["is_free"] = false;       // Actualizar is_free
             frame["segment_id"] = segmento; // Reiniciar segment_id
             frame["page_number"] = pagina;  // Reiniciar page_number
-            frame["content"] = leerSwap(frame_number_swap);
+            frame["content"] = getPage(frame_number_swap);
             new_ram_frame_assigned = frame["frame_number"];
             assigned = true;
         }
