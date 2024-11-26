@@ -9,7 +9,7 @@ using namespace std;
 
 string jsonRAMPath = "../RAM.json";
 string jsonSwapPath = "../Swap.json";
-string rutaArchivo = "../ProgramaEjemplo.cpp";
+string filePath = "../ProgramaEjemplo.cpp";
 
 struct Frame
 {
@@ -84,38 +84,49 @@ std::vector<Frame> loadFramesFromJson(const std::string &filename)
     return frames;
 }
 
-// Función para dividir una cadena en pages de un tamaño específico
-vector<string> pagination(const string &texto, int tamano)
+// Método para calcular la memoria libre de todo el sistema
+int freeMem()
+{
+    vector<Frame> frames = loadFramesFromJson(jsonRAMPath);
+    MemoryCalculator memoryCalculator(frames);
+    int available_memory = memoryCalculator.calculateAvailableMemory();
+    return available_memory;
+}
+
+// Función para dividir una cadena en páginas de un tamaño específico
+vector<string> pagination(const string &text, int size)
 {
     vector<string> pages;
-    for (size_t i = 0; i < texto.size(); i += tamano)
+    for (size_t i = 0; i < text.size(); i += size)
     {
-        pages.push_back(texto.substr(i, tamano));
+        pages.push_back(text.substr(i, size));
     }
     return pages;
 }
 
-int contarLineas(const string &rutaArchivo)
+// Función usada para contar el numero de lineas de un archivo
+int countLines(const string &filePath)
 {
-    ifstream archivo(rutaArchivo);
+    ifstream archivo(filePath);
     if (!archivo.is_open())
     {
-        cerr << "No se pudo abrir el archivo: " << rutaArchivo << endl;
+        cerr << "No se pudo abrir el archivo: " << filePath << endl;
         return -1; // Devuelve -1 si no se puede abrir el archivo
     }
 
-    int contadorLineas = 0;
+    int line_counter = 0;
     string linea;
 
     while (getline(archivo, linea))
     {
-        contadorLineas++;
+        line_counter++;
     }
 
     archivo.close();
-    return contadorLineas;
+    return line_counter;
 }
 
+// Función usada para liberar la memoria de un proceso
 void releaseMemory(int process_id)
 {
     std::ifstream ramJsonFile(jsonRAMPath);
@@ -378,13 +389,13 @@ void uploadToRam(const std::vector<std::vector<std::string>> &segments, int proc
 // Función para dividir el archivo en segment y pages
 bool memoryAllocation(int process_id) // solo pid
 {
-    ifstream archivo(rutaArchivo);
-    int segmentSize = ceil(contarLineas(rutaArchivo) / 3.0); // Número de líneas por parte
+    ifstream archivo(filePath);
+    int segmentSize = ceil(countLines(filePath) / 3.0); // Número de líneas por parte
     int pageSize = 50;
 
     if (!archivo.is_open())
     {
-        cerr << "No se pudo abrir el archivo: " << rutaArchivo << endl;
+        cerr << "No se pudo abrir el archivo: " << filePath << endl;
         return {};
     }
 
@@ -432,14 +443,6 @@ bool memoryAllocation(int process_id) // solo pid
     return true;
 }
 
-int freeMem()
-{
-    vector<Frame> frames = loadFramesFromJson(jsonRAMPath);
-    MemoryCalculator memoryCalculator(frames);
-    int available_memory = memoryCalculator.calculateAvailableMemory();
-    return available_memory;
-}
-
 string leerSwap(int frame_number)
 {
     ifstream inputFile(jsonSwapPath);
@@ -461,8 +464,9 @@ string leerSwap(int frame_number)
     return content;
 }
 
-void actualizar_tabla(int segmento, int pagina, int process_id, int new_page_ram_frame){
-ifstream inputFile(jsonRAMPath);
+void actualizar_tabla(int segmento, int pagina, int process_id, int new_page_ram_frame)
+{
+    ifstream inputFile(jsonRAMPath);
     json jsonData;
     inputFile >> jsonData;
     inputFile.close();
@@ -516,12 +520,13 @@ bool memorySwap(int segmento, int pagina, int process_id)
                         if (paginas["page_number"] == pagina)
                         {
                             frame_number_swap = paginas["frame_swap"];
-                        }if (paginas["presence_bit"] == 1)
-                            {
-                                frame_number_Ram = paginas["frame_ram"];
-                                paginas["frame_ram"] = -1;
-                                paginas["presence_bit"] = 0;
-                            }
+                        }
+                        if (paginas["presence_bit"] == 1)
+                        {
+                            frame_number_Ram = paginas["frame_ram"];
+                            paginas["frame_ram"] = -1;
+                            paginas["presence_bit"] = 0;
+                        }
                     }
                 }
             }
@@ -554,7 +559,7 @@ bool memorySwap(int segmento, int pagina, int process_id)
     outputFile << jsonData.dump(4);
     outputFile.close();
 
-    actualizar_tabla(segmento,  pagina,  process_id,  new_ram_frame_assigned);
+    actualizar_tabla(segmento, pagina, process_id, new_ram_frame_assigned);
     return true;
 }
 int main()
