@@ -176,6 +176,7 @@ void uploadToRam(const std::vector<std::vector<std::string>> &segments, int proc
             jsonRAM["frames"][ramFrame_id]["segment_id"] = static_cast<int>(i + 1);
             jsonRAM["frames"][ramFrame_id]["page_number"] = 1;
             jsonRAM["frames"][ramFrame_id]["content"] = pages[0];
+            jsonRAM["frames"][ramFrame_id]["process_id"] = process_id;
             jsonRAM["frames"][ramFrame_id]["is_free"] = false;
 
             // Añadir la página en la tabla de paginación del segmento
@@ -205,6 +206,7 @@ void uploadToRam(const std::vector<std::vector<std::string>> &segments, int proc
             jsonSwap["frames"][swapFrame_id]["segment_id"] = static_cast<int>(i + 1);
             jsonSwap["frames"][swapFrame_id]["page_number"] = static_cast<int>(j + 1);
             jsonSwap["frames"][swapFrame_id]["content"] = pages[j];
+            jsonSwap["frames"][swapFrame_id]["process_id"] = process_id;
             jsonSwap["frames"][swapFrame_id]["is_free"] = false; // Marcar como ocupado
 
             // Añadir la página en la tabla de paginación del segmento
