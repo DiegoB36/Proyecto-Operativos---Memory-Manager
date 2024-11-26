@@ -164,7 +164,7 @@ void releaseMemory(int process_id)
     {
         if (frame["process_id"] == process_id && !frame["is_free"])
         {
-            frame["is_free"] = true;  // Actualizar is_free
+            frame["is_free"] = true;  // Indicar página libre
             frame["segment_id"] = 0;  // Reiniciar segment_id
             frame["page_number"] = 0; // Reiniciar page_number
             frame["content"] = "";    // Limpiar contenido
@@ -292,7 +292,7 @@ void uploadToRam(const std::vector<std::vector<std::string>> &segments, int proc
     processEntry["process_id"] = process_id;  // El ID del proceso
     processEntry["segments"] = json::array(); // Inicializar el array de segmentos
 
-    // Iterar sobre las segments y pages para organizarlas en los JSON
+    // Iterar sobre los segmentos y paginas para organizarlas en los JSON
     for (size_t i = 0; i < segments.size(); ++i)
     {
         const auto &pages = segments[i];
@@ -302,7 +302,7 @@ void uploadToRam(const std::vector<std::vector<std::string>> &segments, int proc
         segmentEntry["segment_id"] = static_cast<int>(i + 1);
         segmentEntry["pages"] = json::array();
 
-        // Guardar las pages restantes en el JSON secundario
+        // Guardar las paginas restantes en el JSON secundario
         for (size_t j = 0; j < pages.size(); ++j)
         {
             // Buscar el próximo campo "libre" en el JSON secundario
