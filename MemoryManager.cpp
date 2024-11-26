@@ -413,6 +413,38 @@ string leerSwap(int frame_number)
     return content;
 }
 
+void actualizar_tabla(int segmento, int pagina, int process_id, int new_page_ram_frame){
+ifstream inputFile(jsonRAMPath);
+    json jsonData;
+    inputFile >> jsonData;
+    inputFile.close();
+
+    for (auto &process : jsonData["SO"])
+    {
+        if (process["process_id"] == process_id)
+        {
+            for (auto &segmentos : process["segments"])
+            {
+                if (segmentos["segment_id"] == segmento)
+                {
+                    for (auto &paginas : segmentos["pages"])
+                    {
+                        if (paginas["page_number"] == pagina)
+                        {
+                            paginas["frame_ram"] == new_page_ram_frame;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Guarda el archivo JSON con los cambios
+    ofstream outputFile(jsonRAMPath);
+    outputFile << jsonData.dump(4);
+    outputFile.close();
+}
+
 bool memorySwap(int segmento, int pagina, int process_id)
 {
     ifstream inputFile(jsonRAMPath);
@@ -434,18 +466,21 @@ bool memorySwap(int segmento, int pagina, int process_id)
                     {
                         if (paginas["page_number"] == pagina)
                         {
-                            frame_number_swap = paginas["frame_number"];
-                        }
-                        if (paginas["presence_bit"] == 1)
-                        {
-                            frame_number_Ram = paginas["frame_number"];
-                            
+                            if (paginas["presence_bit"] == 1)
+                            {
+                                frame_number_Ram = paginas["frame_ram"];
+                                paginas["page_number"] = 0;
+                                paginas["presence_bit"] = 0;
+                            }else{
+                                frame_number_swap = paginas["frame_swap"];
+                            }
                         }
                     }
                 }
             }
         }
     }
+    int new_ram_frame_assigned = 0;
     bool assigned = false;
     for (auto &frame : jsonData["frames"])
     {
@@ -455,6 +490,7 @@ bool memorySwap(int segmento, int pagina, int process_id)
             frame["segment_id"] = segmento; // Reiniciar segment_id
             frame["page_number"] = pagina;  // Reiniciar page_number
             frame["content"] = leerSwap(frame_number_swap);
+            new_ram_frame_assigned = frame["frame_number"];
             assigned = true;
         }
         if (frame["frame_number"] == frame_number_Ram)
@@ -471,6 +507,7 @@ bool memorySwap(int segmento, int pagina, int process_id)
     outputFile << jsonData.dump(4);
     outputFile.close();
 
+    actualizar_tabla(segmento, pagina, process_id, new_ram_frame_assigned);
     return true;
 }
 
