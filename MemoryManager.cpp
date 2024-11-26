@@ -116,6 +116,101 @@ int contarLineas(const string &rutaArchivo)
     return contadorLineas;
 }
 
+void releaseMemory(int process_id)
+{
+    std::ifstream ramJsonFile(jsonRAMPath);
+    std::ifstream swapJsonFile(jsonSwapPath);
+
+    json jsonRAM;
+    json jsonSwap;
+
+    // Manejo del JSON principal
+    if (ramJsonFile.is_open())
+    {
+        ramJsonFile >> jsonRAM;
+        ramJsonFile.close();
+    }
+    else
+    {
+        std::cerr << "No se pudo abrir el archivo principal JSON: " << jsonRAMPath << std::endl;
+        return;
+    }
+
+    // Manejo del JSON secundario
+    if (swapJsonFile.is_open())
+    {
+        swapJsonFile >> jsonSwap;
+        swapJsonFile.close();
+    }
+    else
+    {
+        std::cerr << "No se pudo abrir el archivo secundario JSON: " << jsonSwapPath << std::endl;
+        return;
+    }
+
+    // Liberar frames en el JSON principal
+    for (auto &frame : jsonRAM["frames"])
+    {
+        if (frame["process_id"] == process_id && !frame["is_free"])
+        {
+            frame["is_free"] = true;  // Actualizar is_free
+            frame["segment_id"] = 0;  // Reiniciar segment_id
+            frame["page_number"] = 0; // Reiniciar page_number
+            frame["content"] = "";    // Limpiar contenido
+            std::cout << "Frame liberado en JSON principal, process_id: " << process_id << std::endl;
+        }
+    }
+
+    // Borrar tablas de direcciones asociadas al proceso
+    jsonRAM["SO"].erase(
+        std::remove_if(
+            jsonRAM["SO"].begin(),
+            jsonRAM["SO"].end(),
+            [process_id](const json &item)
+            { return item["process_id"] == process_id; }),
+        jsonRAM["SO"].end());
+
+    // Liberar frames en el JSON secundario
+    for (auto &frame : jsonSwap["frames"])
+    {
+        if (frame["process_id"] == process_id && !frame["is_free"])
+        {
+            frame["is_free"] = true;  // Actualizar is_free
+            frame["segment_id"] = 0;  // Reiniciar segment_id
+            frame["page_number"] = 0; // Reiniciar page_number
+            frame["content"] = "";    // Limpiar contenido
+            std::cout << "Frame liberado en JSON secundario, process_id: " << process_id << std::endl;
+        }
+    }
+
+    // Guardar los JSON actualizados en sus archivos correspondientes
+    std::ofstream archivoPrincipalJsonSalida(jsonRAMPath);
+    if (archivoPrincipalJsonSalida.is_open())
+    {
+        archivoPrincipalJsonSalida << jsonRAM.dump(4);
+        archivoPrincipalJsonSalida.close();
+    }
+    else
+    {
+        std::cerr << "No se pudo guardar el archivo principal JSON: " << jsonRAMPath << std::endl;
+        return;
+    }
+
+    std::ofstream archivoSecundarioJsonSalida(jsonSwapPath);
+    if (archivoSecundarioJsonSalida.is_open())
+    {
+        archivoSecundarioJsonSalida << jsonSwap.dump(4);
+        archivoSecundarioJsonSalida.close();
+    }
+    else
+    {
+        std::cerr << "No se pudo guardar el archivo secundario JSON: " << jsonSwapPath << std::endl;
+        return;
+    }
+
+    std::cout << "Memoria liberada en JSON principal y secundario para process_id: " << process_id << std::endl;
+}
+
 void uploadToRam(const std::vector<std::vector<std::string>> &segments, int process_id)
 {
     // Leer ambos archivos JSON existentes
@@ -137,6 +232,47 @@ void uploadToRam(const std::vector<std::vector<std::string>> &segments, int proc
     {
         swapJsonFile >> jsonSwap;
         swapJsonFile.close();
+    }
+
+    // **Verificar si el proceso ya existe en JSON principal**
+    auto &soEntries = jsonRAM["SO"];
+    for (auto it = soEntries.begin(); it != soEntries.end(); ++it)
+    {
+        if ((*it)["process_id"] == process_id)
+        {
+            // Liberar memoria del proceso existente
+            releaseMemory(process_id);
+
+            // **Actualizar jsonRAM tras liberar memoria**
+            // Leer de nuevo el archivo JSON principal para sincronizar los cambios
+            std::ifstream updatedRamJsonFile(jsonRAMPath);
+            if (updatedRamJsonFile.is_open())
+            {
+                updatedRamJsonFile >> jsonRAM;
+                updatedRamJsonFile.close();
+            }
+            else
+            {
+                std::cerr << "Error al leer JSON principal tras liberar memoria" << std::endl;
+                return;
+            }
+
+            // **Actualizar jsonSwap tras liberar memoria**
+            // Leer de nuevo el archivo JSON secundario para sincronizar los cambios
+            std::ifstream updatedSwapJsonFile(jsonSwapPath);
+            if (updatedSwapJsonFile.is_open())
+            {
+                updatedSwapJsonFile >> jsonSwap;
+                updatedSwapJsonFile.close();
+            }
+            else
+            {
+                std::cerr << "Error al leer JSON secundario tras liberar memoria" << std::endl;
+                return;
+            }
+
+            break;
+        }
     }
 
     int ramFrame_id = 0;
@@ -296,101 +432,6 @@ bool memoryAllocation(int process_id) // solo pid
     return true;
 }
 
-void releaseMemory(int process_id)
-{
-    std::ifstream ramJsonFile(jsonRAMPath);
-    std::ifstream swapJsonFile(jsonSwapPath);
-
-    json jsonRAM;
-    json jsonSwap;
-
-    // Manejo del JSON principal
-    if (ramJsonFile.is_open())
-    {
-        ramJsonFile >> jsonRAM;
-        ramJsonFile.close();
-    }
-    else
-    {
-        std::cerr << "No se pudo abrir el archivo principal JSON: " << jsonRAMPath << std::endl;
-        return;
-    }
-
-    // Manejo del JSON secundario
-    if (swapJsonFile.is_open())
-    {
-        swapJsonFile >> jsonSwap;
-        swapJsonFile.close();
-    }
-    else
-    {
-        std::cerr << "No se pudo abrir el archivo secundario JSON: " << jsonSwapPath << std::endl;
-        return;
-    }
-
-    // Liberar frames en el JSON principal
-    for (auto &frame : jsonRAM["frames"])
-    {
-        if (frame["process_id"] == process_id && !frame["is_free"])
-        {
-            frame["is_free"] = true;  // Actualizar is_free
-            frame["segment_id"] = 0;  // Reiniciar segment_id
-            frame["page_number"] = 0; // Reiniciar page_number
-            frame["content"] = "";    // Limpiar contenido
-            std::cout << "Frame liberado en JSON principal, process_id: " << process_id << std::endl;
-        }
-    }
-
-    // Borrar tablas de direcciones asociadas al proceso
-    jsonRAM["SO"].erase(
-        std::remove_if(
-            jsonRAM["SO"].begin(),
-            jsonRAM["SO"].end(),
-            [process_id](const json &item)
-            { return item["process_id"] == process_id; }),
-        jsonRAM["SO"].end());
-
-    // Liberar frames en el JSON secundario
-    for (auto &frame : jsonSwap["frames"])
-    {
-        if (frame["process_id"] == process_id && !frame["is_free"])
-        {
-            frame["is_free"] = true;  // Actualizar is_free
-            frame["segment_id"] = 0;  // Reiniciar segment_id
-            frame["page_number"] = 0; // Reiniciar page_number
-            frame["content"] = "";    // Limpiar contenido
-            std::cout << "Frame liberado en JSON secundario, process_id: " << process_id << std::endl;
-        }
-    }
-
-    // Guardar los JSON actualizados en sus archivos correspondientes
-    std::ofstream archivoPrincipalJsonSalida(jsonRAMPath);
-    if (archivoPrincipalJsonSalida.is_open())
-    {
-        archivoPrincipalJsonSalida << jsonRAM.dump(4);
-        archivoPrincipalJsonSalida.close();
-    }
-    else
-    {
-        std::cerr << "No se pudo guardar el archivo principal JSON: " << jsonRAMPath << std::endl;
-        return;
-    }
-
-    std::ofstream archivoSecundarioJsonSalida(jsonSwapPath);
-    if (archivoSecundarioJsonSalida.is_open())
-    {
-        archivoSecundarioJsonSalida << jsonSwap.dump(4);
-        archivoSecundarioJsonSalida.close();
-    }
-    else
-    {
-        std::cerr << "No se pudo guardar el archivo secundario JSON: " << jsonSwapPath << std::endl;
-        return;
-    }
-
-    std::cout << "Memoria liberada en JSON principal y secundario para process_id: " << process_id << std::endl;
-}
-
 int freeMem()
 {
     vector<Frame> frames = loadFramesFromJson(jsonRAMPath);
@@ -516,18 +557,17 @@ bool memorySwap(int segmento, int pagina, int process_id)
     updateTable(segmento,  pagina,  process_id,  new_ram_frame_assigned);
     return true;
 }
-
 int main()
 {
     // MEMORY ALLOCATION
     int process_id = 0;
 
-    //bool result = memoryAllocation(process_id);
+    // bool result = memoryAllocation(process_id);
 
     // Consultas a la Memoria
     // cout << "Memoria disponible: " << freeMem() << " KB" << endl;
 
-    //releaseMemory(process_id);
+    // releaseMemory(process_id);
 
     // cout << "Memoria disponible: " << freeMem() << " KB" << endl;
     memorySwap(1, 3, 0);
