@@ -335,7 +335,7 @@ void releaseMemory(int process_id)
     {
         if (frame["process_id"] == process_id && !frame["is_free"])
         {
-            frame["is_free"] = true;  // Actualizar is_free para mantener consistencia
+            frame["is_free"] = true;  // Actualizar is_free 
             frame["segment_id"] = 0;  // Reiniciar segment_id
             frame["page_number"] = 0; // Reiniciar page_number
             frame["content"] = "";    // Limpiar contenido
@@ -348,7 +348,7 @@ void releaseMemory(int process_id)
     {
         if (frame["process_id"] == process_id && !frame["is_free"])
         {
-            frame["is_free"] = true;  // Actualizar is_free para mantener consistencia
+            frame["is_free"] = true;  // Actualizar is_free 
             frame["segment_id"] = 0;  // Reiniciar segment_id
             frame["page_number"] = 0; // Reiniciar page_number
             frame["content"] = "";    // Limpiar contenido
@@ -360,7 +360,7 @@ void releaseMemory(int process_id)
     std::ofstream archivoPrincipalJsonSalida(jsonRAMPath);
     if (archivoPrincipalJsonSalida.is_open())
     {
-        archivoPrincipalJsonSalida << jsonRAM.dump(4); // Escribir el JSON principal formateado con 4 espacios
+        archivoPrincipalJsonSalida << jsonRAM.dump(4); 
         archivoPrincipalJsonSalida.close();
     }
     else
@@ -372,7 +372,7 @@ void releaseMemory(int process_id)
     std::ofstream archivoSecundarioJsonSalida(jsonSwapPath);
     if (archivoSecundarioJsonSalida.is_open())
     {
-        archivoSecundarioJsonSalida << jsonSwap.dump(4); // Escribir el JSON secundario formateado con 4 espacios
+        archivoSecundarioJsonSalida << jsonSwap.dump(4); 
         archivoSecundarioJsonSalida.close();
     }
     else
@@ -439,6 +439,7 @@ bool memorySwap(int segmento, int pagina, int process_id)
                         if (paginas["presence_bit"] == 1)
                         {
                             frame_number_Ram = paginas["frame_number"];
+                            
                         }
                     }
                 }
@@ -450,7 +451,7 @@ bool memorySwap(int segmento, int pagina, int process_id)
     {
         if (frame["is_free"] && !assigned)
         {
-            frame["is_free"] = false;       // Actualizar is_free para mantener consistencia
+            frame["is_free"] = false;       // Actualizar is_free
             frame["segment_id"] = segmento; // Reiniciar segment_id
             frame["page_number"] = pagina;  // Reiniciar page_number
             frame["content"] = leerSwap(frame_number_swap);
@@ -458,7 +459,7 @@ bool memorySwap(int segmento, int pagina, int process_id)
         }
         if (frame["frame_number"] == frame_number_Ram)
         {
-            frame["is_free"] = true;  // Actualizar is_free para mantener consistencia
+            frame["is_free"] = true;  // Actualizar is_free
             frame["segment_id"] = 0;  // Reiniciar segment_id
             frame["page_number"] = 0; // Reiniciar page_number
             frame["content"] = "";    // Limpiar contenido
@@ -467,7 +468,7 @@ bool memorySwap(int segmento, int pagina, int process_id)
 
     // Guarda el archivo JSON con los cambios
     ofstream outputFile(jsonRAMPath);
-    outputFile << jsonData.dump(4); // dump(4) para formatear con indentación
+    outputFile << jsonData.dump(4);
     outputFile.close();
 
     return true;
@@ -477,7 +478,7 @@ int main()
 {
     // MEMORY ALLOCATION
     int process_id = 0;
-    /*
+    
      bool result = memoryAllocation(process_id);
      if (result)
      {
@@ -488,7 +489,7 @@ int main()
 
      // releaseMemory(process_id);
 
-     // cout << "Memoria disponible: " << freeMem() << " KB" << endl;*/
+     // cout << "Memoria disponible: " << freeMem() << " KB" << endl;
     memorySwap(1, 2, 0);
 
     return 0;
