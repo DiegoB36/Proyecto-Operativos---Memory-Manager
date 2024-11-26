@@ -432,13 +432,14 @@ bool memorySwap(int segmento, int pagina, int process_id) {
             }   
         }
     }
-
+    bool assigned = false;
     for (auto& frame : jsonData["frames"]) {
-        if (frame["is_free"]) {
+        if (frame["is_free"] && !assigned) {
             frame["is_free"] = false;  // Actualizar is_free para mantener consistencia
             frame["segment_id"] = segmento;  // Reiniciar segment_id
             frame["page_number"] = pagina; // Reiniciar page_number
             frame["content"] = leerSwap(frame_number_swap);
+            assigned = true;
         }
         if (frame["frame_number"] == frame_number_Ram) {
             frame["is_free"] = true;  // Actualizar is_free para mantener consistencia
@@ -461,8 +462,7 @@ int main()
 {
     // MEMORY ALLOCATION
     int process_id = 0;
-
-    bool result = memoryAllocation(process_id);
+    /*bool result = memoryAllocation(process_id);
     if (result)
     {
         printf("Asignación completa");
@@ -472,7 +472,8 @@ int main()
 
     // releaseMemory(process_id);
 
-    // cout << "Memoria disponible: " << freeMem() << " KB" << endl;
+    // cout << "Memoria disponible: " << freeMem() << " KB" << endl;*/
+    
 
     memorySwap(1, 2, 0);
 
