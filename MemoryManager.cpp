@@ -438,7 +438,8 @@ ifstream inputFile(jsonRAMPath);
                     {
                         if (paginas["page_number"] == pagina)
                         {
-                            paginas["frame_ram"] == new_page_ram_frame;
+                            paginas["frame_ram"] = new_page_ram_frame;
+                            paginas["presence_bit"] = 1;
                         }
                     }
                 }
@@ -473,15 +474,13 @@ bool memorySwap(int segmento, int pagina, int process_id)
                     {
                         if (paginas["page_number"] == pagina)
                         {
-                            if (paginas["presence_bit"] == 1)
+                            frame_number_swap = paginas["frame_swap"];
+                        }if (paginas["presence_bit"] == 1)
                             {
                                 frame_number_Ram = paginas["frame_ram"];
-                                paginas["page_number"] = 0;
+                                paginas["frame_ram"] = -1;
                                 paginas["presence_bit"] = 0;
-                            }else{
-                                frame_number_swap = paginas["frame_swap"];
                             }
-                        }
                     }
                 }
             }
@@ -514,7 +513,7 @@ bool memorySwap(int segmento, int pagina, int process_id)
     outputFile << jsonData.dump(4);
     outputFile.close();
 
-    actualizar_tabla(segmento, pagina, process_id, new_ram_frame_assigned);
+    actualizar_tabla(segmento,  pagina,  process_id,  new_ram_frame_assigned);
     return true;
 }
 
@@ -523,15 +522,15 @@ int main()
     // MEMORY ALLOCATION
     int process_id = 0;
 
-    bool result = memoryAllocation(process_id);
+    //bool result = memoryAllocation(process_id);
 
     // Consultas a la Memoria
     // cout << "Memoria disponible: " << freeMem() << " KB" << endl;
 
-    // releaseMemory(process_id);
+    //releaseMemory(process_id);
 
     // cout << "Memoria disponible: " << freeMem() << " KB" << endl;
-    // memorySwap(1, 2, 0);
+    memorySwap(1, 3, 0);
 
     return 0;
 }
