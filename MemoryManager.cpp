@@ -461,9 +461,8 @@ string leerSwap(int frame_number)
     return content;
 }
 
-void actualizar_tabla(int segmento, int pagina, int process_id, int new_page_ram_frame)
-{
-    ifstream inputFile(jsonRAMPath);
+void actualizar_tabla(int segmento, int pagina, int process_id, int new_page_ram_frame){
+ifstream inputFile(jsonRAMPath);
     json jsonData;
     inputFile >> jsonData;
     inputFile.close();
@@ -517,54 +516,47 @@ bool memorySwap(int segmento, int pagina, int process_id)
                         if (paginas["page_number"] == pagina)
                         {
                             frame_number_swap = paginas["frame_swap"];
-                        }
-                        if (paginas["presence_bit"] == 1)
-                        {
-                            frame_number_Ram = paginas["frame_ram"];
-                            paginas["frame_ram"] = -1;
-                            paginas["presence_bit"] = 0;
-                        }
-                        else
-                        {
-                            frame_number_swap = paginas["frame_swap"];
-                        }
+                        }if (paginas["presence_bit"] == 1)
+                            {
+                                frame_number_Ram = paginas["frame_ram"];
+                                paginas["frame_ram"] = -1;
+                                paginas["presence_bit"] = 0;
+                            }
                     }
                 }
             }
         }
     }
-}
-int new_ram_frame_assigned = 0;
-bool assigned = false;
-for (auto &frame : jsonData["frames"])
-{
-    if (frame["is_free"] && !assigned)
+    int new_ram_frame_assigned = 0;
+    bool assigned = false;
+    for (auto &frame : jsonData["frames"])
     {
-        frame["is_free"] = false;       // Actualizar is_free
-        frame["segment_id"] = segmento; // Reiniciar segment_id
-        frame["page_number"] = pagina;  // Reiniciar page_number
-        frame["content"] = leerSwap(frame_number_swap);
-        new_ram_frame_assigned = frame["frame_number"];
-        assigned = true;
+        if (frame["is_free"] && !assigned)
+        {
+            frame["is_free"] = false;       // Actualizar is_free
+            frame["segment_id"] = segmento; // Reiniciar segment_id
+            frame["page_number"] = pagina;  // Reiniciar page_number
+            frame["content"] = leerSwap(frame_number_swap);
+            new_ram_frame_assigned = frame["frame_number"];
+            assigned = true;
+        }
+        if (frame["frame_number"] == frame_number_Ram)
+        {
+            frame["is_free"] = true;  // Actualizar is_free
+            frame["segment_id"] = 0;  // Reiniciar segment_id
+            frame["page_number"] = 0; // Reiniciar page_number
+            frame["content"] = "";    // Limpiar contenido
+        }
     }
-    if (frame["frame_number"] == frame_number_Ram)
-    {
-        frame["is_free"] = true;  // Actualizar is_free
-        frame["segment_id"] = 0;  // Reiniciar segment_id
-        frame["page_number"] = 0; // Reiniciar page_number
-        frame["content"] = "";    // Limpiar contenido
-    }
+
+    // Guarda el archivo JSON con los cambios
+    ofstream outputFile(jsonRAMPath);
+    outputFile << jsonData.dump(4);
+    outputFile.close();
+
+    actualizar_tabla(segmento,  pagina,  process_id,  new_ram_frame_assigned);
+    return true;
 }
-
-// Guarda el archivo JSON con los cambios
-ofstream outputFile(jsonRAMPath);
-outputFile << jsonData.dump(4);
-outputFile.close();
-
-actualizar_tabla(segmento, pagina, process_id, new_ram_frame_assigned);
-return true;
-}
-
 int main()
 {
     // MEMORY ALLOCATION
