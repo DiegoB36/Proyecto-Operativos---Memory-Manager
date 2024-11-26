@@ -557,7 +557,7 @@ bool memorySwap(int segmento, int pagina, int process_id)
     outputFile << jsonData.dump(4);
     outputFile.close();
 
-    actualizar_tabla(segmento, pagina, process_id, new_ram_frame_assigned);
+    updateTable(segmento, pagina, process_id, new_ram_frame_assigned);
     return true;
 }
 int main()
