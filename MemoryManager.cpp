@@ -496,7 +496,7 @@ void updateTable(int segmento, int pagina, int process_id, int new_page_ram_fram
     outputFile.close();
 }
 
-bool memorySwap(int segmento, int pagina, int process_id)
+bool memorySwap(int segment, int page, int process_id)
 {
     ifstream inputFile(jsonRAMPath);
     json jsonData;
@@ -511,11 +511,11 @@ bool memorySwap(int segmento, int pagina, int process_id)
         {
             for (auto &segmentos : process["segments"])
             {
-                if (segmentos["segment_id"] == segmento)
+                if (segmentos["segment_id"] == segment)
                 {
                     for (auto &paginas : segmentos["pages"])
                     {
-                        if (paginas["page_number"] == pagina)
+                        if (paginas["page_number"] == page)
                         {
                             frame_number_swap = paginas["frame_swap"];
                         }
@@ -537,9 +537,10 @@ bool memorySwap(int segmento, int pagina, int process_id)
         if (frame["is_free"] && !assigned)
         {
             frame["is_free"] = false;       // Actualizar is_free
-            frame["segment_id"] = segmento; // Reiniciar segment_id
-            frame["page_number"] = pagina;  // Reiniciar page_number
+            frame["segment_id"] = segment; // Reiniciar segment_id
+            frame["page_number"] = page;  // Reiniciar page_number
             frame["content"] = getPage(frame_number_swap);
+            frame["process_id"] = process_id;
             new_ram_frame_assigned = frame["frame_number"];
             assigned = true;
         }
@@ -549,6 +550,7 @@ bool memorySwap(int segmento, int pagina, int process_id)
             frame["segment_id"] = 0;  // Reiniciar segment_id
             frame["page_number"] = 0; // Reiniciar page_number
             frame["content"] = "";    // Limpiar contenido
+            frame["process_id"] = 0;
         }
     }
 
@@ -557,7 +559,7 @@ bool memorySwap(int segmento, int pagina, int process_id)
     outputFile << jsonData.dump(4);
     outputFile.close();
 
-    updateTable(segmento, pagina, process_id, new_ram_frame_assigned);
+    updateTable(segment, page, process_id, new_ram_frame_assigned);
     return true;
 }
 int main()
